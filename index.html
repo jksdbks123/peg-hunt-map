@@ -1,0 +1,1137 @@
+<!doctype html>
+<!-- Public core page template, assembled by hh/page.py: double-brace names are the topic's wording and numbers;
+     "slot:" comments mark where the admin extension adds its markup (they stay empty on the public site). -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Where in California is a die-cast hunting trip worth starting? Every spot scored by the best round trip to nearby stores, weighted by how many other hunters share them.">
+<meta property="og:title" content="Peg Hunt Map">
+<meta property="og:description" content="Where in California is a die-cast hunting trip worth starting? Every spot scored by the best round trip to nearby stores, weighted by how many other hunters share them.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jksdbks123.github.io/peg-hunt-map/">
+<meta property="og:image" content="https://jksdbks123.github.io/peg-hunt-map/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<title>Peg Hunt Map</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C10 2 6 6.6 6 12.2 6 20 16 30 16 30s10-10 10-17.8C26 6.6 22 2 16 2z' fill='%23bd0026'/%3E%3Ccircle cx='16' cy='12.5' r='4.2' fill='%23fff'/%3E%3C/svg%3E">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
+<script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
+<style>
+/* Public core styles (hh/page.py inlines this file into every page). */
+html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; color: #222; }
+#map { position: absolute; inset: 0; }
+#panel { position: absolute; z-index: 10; top: 10px; left: 10px; width: 360px; max-height: calc(100% - 20px); overflow: auto;
+         background: #fff; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.35); padding: 12px 14px; }
+h1 { font-size: 15px; margin: 0 0 4px; }
+h2 { font-size: 13px; margin: 10px 0 4px; }
+#assume { background: #fff8e6; border-left: 3px solid #c88a00; padding: 8px 10px; margin: 4px 0 8px; line-height: 1.45; }
+#assume p { margin: 4px 0; }
+#assume table { width: auto; }
+#assume td { border: 0; padding: 1px 8px 1px 0; }
+details.help { margin-top: 6px; }
+details.help > summary { cursor: pointer; font-weight: 600; color: #1e3cc8; padding: 3px 0; }
+#help { margin-top: 8px; padding-top: 4px; border-top: 1px solid #ddd; }
+.row { margin: 6px 0; }
+.row label { margin-right: 10px; white-space: nowrap; }
+#legend { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; align-items: center; }
+#legendStores { margin-top: 4px; line-height: 1.6; }
+.sw { display: inline-block; min-width: 24px; padding: 0 3px; height: 15px; border: 1px solid #999; text-align: center; font-size: 10px; line-height: 15px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 6px; vertical-align: -1px; border: 1.5px solid transparent; }
+#status { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; }
+#tour { margin-top: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+td, th { padding: 2px 4px; border-bottom: 1px solid #eee; vertical-align: top; text-align: left; }
+th { color: #666; font-weight: 600; }
+.muted { color: #777; }
+.warn { color: #b00020; }
+.hint { background: #f3f6fb; padding: 6px 8px; border-radius: 4px; }
+.num { text-align: right; white-space: nowrap; }
+code { font-size: 11px; }
+#tabs { display: flex; gap: 0; margin: 2px 0 6px; border-bottom: 2px solid #1e3cc8; }
+#tabs button { flex: 1; font: inherit; padding: 5px 6px; border: 1px solid #c5cbe0; border-bottom: 0; background: #f3f6fb; cursor: pointer; border-radius: 6px 6px 0 0; }
+#tabs button.on { background: #1e3cc8; color: #fff; border-color: #1e3cc8; font-weight: 600; }
+#tabs button:disabled { color: #aaa; cursor: not-allowed; }
+.hide { display: none; }
+.btn { font: inherit; padding: 3px 8px; border: 1px solid #1e3cc8; background: #fff; color: #1e3cc8; border-radius: 4px; cursor: pointer; }
+.btn.on { background: #1e3cc8; color: #fff; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; margin-left: -1px; padding: 2px 7px; }
+.seg .btn:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+.seg .btn:last-child { border-radius: 0 4px 4px 0; }
+.gmaps { margin: 6px 0; }
+.gmaps a.btn { display: inline-block; text-decoration: none; margin: 0 4px 4px 0; }
+#busyChip { display: none; position: absolute; z-index: 20; top: 12px; left: calc(50% + 190px); transform: translateX(-50%);
+            background: #1e3cc8; color: #fff; padding: 5px 14px; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.35); font-weight: 600; }
+body.busy #busyChip { display: block; }
+body.busy .maplibregl-canvas { cursor: progress; }
+/* ---- city dashboard (mode C): a full page over the map ---- */
+#cityView { display: none; position: absolute; inset: 0; z-index: 15; background: #fff; overflow: auto; }
+body.modeC #cityView { display: block; }
+body.modeC #busyChip { left: 50%; }
+#cHead { position: sticky; top: 0; z-index: 2; background: #fff; border-bottom: 1px solid #ddd; padding: 8px 16px 6px; }
+#cHead h1 { display: inline-block; margin-right: 12px; }
+#cTabs { display: inline-flex; gap: 4px; vertical-align: 1px; }
+#cTabs button { font: inherit; padding: 3px 9px; border: 1px solid #c5cbe0; background: #f3f6fb; cursor: pointer; border-radius: 5px; }
+#cTabs button.on { background: #1e3cc8; color: #fff; border-color: #1e3cc8; font-weight: 600; }
+#cControls { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+#cControls select, #cControls input[type=search] { font: inherit; padding: 2px 4px; }
+#cBody { padding: 10px 16px 30px; max-width: 1400px; }
+.cgrid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .cgrid { grid-template-columns: minmax(0, 1fr); } }
+#cScatter { position: relative; user-select: none; }
+#cScatter svg { display: block; width: 100%; }
+#cScatter .pt { cursor: pointer; }
+#cScatter text.lab { font-size: 11px; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; fill: #222; pointer-events: none; }
+#cTip { position: absolute; pointer-events: none; background: rgba(20,20,20,.9); color: #fff; padding: 5px 8px; border-radius: 4px; font-size: 12px; line-height: 1.4; display: none; white-space: nowrap; z-index: 3; }
+#cDetail { border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; position: sticky; top: 90px; }
+#cDetail .big { font-size: 30px; font-weight: 700; line-height: 1.1; }
+#cDetail td { border: 0; padding: 2px 4px 2px 0; }
+#cDetail h2 { margin-top: 12px; }
+#cDetail a, #cTable a { color: #1e3cc8; }
+#cTable { margin-top: 14px; }
+#cTable th { position: sticky; top: 84px; background: #fff; cursor: pointer; white-space: nowrap; }
+#cTable th.sorted { color: #1e3cc8; }
+#cTable tr.city { cursor: pointer; }
+#cTable tr.city:hover { background: #f3f6fb; }
+#cTable tr.cur { background: #e6ebfa; }
+#cHow { background: #f3f6fb; border-left: 3px solid #1e3cc8; padding: 8px 10px; margin: 6px 0; line-height: 1.45; }
+#cHow p { margin: 4px 0; }
+#cAssume { background: #fff8e6; border-left: 3px solid #c88a00; padding: 8px 10px; margin: 6px 0; line-height: 1.45; }
+#cAssume p { margin: 4px 0; }
+#cityNote { margin: 4px 0; }
+.flag { display: inline-block; font-size: 10px; line-height: 14px; padding: 0 5px; border-radius: 7px; background: #fff1d6; color: #8a5a00; border: 1px solid #e3b860; white-space: nowrap; cursor: help; }
+.flagnote { margin: 4px 0; line-height: 1.4; }
+#cDetail table.qs th, #cDetail table.qs td { padding: 1px 6px; }
+/* ---- public look (2026-10-06): title, compact panel, legend bar, options, modals, phone layout ---- */
+.sub { color: #555; margin: 0 0 8px; line-height: 1.35; }
+#panel h1 { font-size: 17px; }
+.lbl { color: #555; margin-right: 6px; }
+#legend { display: block; }
+.legbar { height: 10px; border-radius: 5px; margin: 4px 0 2px; }
+.legends { display: flex; justify-content: space-between; color: #555; font-size: 12px; }
+.legcap { color: #555; font-size: 12px; margin-top: 2px; }
+.zero { display: inline-block; width: 10px; height: 10px; background: #d7d7d7; border: 1px solid #bbb; vertical-align: -1px; }
+details.opts { margin-top: 8px; border-top: 1px solid #ddd; padding-top: 4px; }
+details.opts > summary { cursor: pointer; color: #1e3cc8; padding: 3px 0; }
+.foot { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+.foot a, .linkish { color: #1e3cc8; cursor: pointer; text-decoration: underline; }
+.worth { font-size: 16px; }
+.trip-pop .maplibregl-popup-content { padding: 10px 12px 8px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
+.trip-pop .gmaps { margin: 6px 0 0; }
+.trip-pop .gmaps a.btn { background: #1e3cc8; color: #fff; font-weight: 600; }
+.trip-pop .maplibregl-popup-close-button { font-size: 18px; padding: 0 6px; }
+#status:empty { display: none; }
+#grab { display: none; }
+.modal { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 16px; }
+.modal.on { display: flex; }
+.modal .card { background: #fff; border-radius: 10px; max-width: 640px; width: 100%; max-height: calc(100% - 32px); overflow: auto; padding: 18px 22px;
+               box-shadow: 0 4px 24px rgba(0,0,0,.35); line-height: 1.5; font-size: 14px; position: relative; }
+.modal h2 { font-size: 16px; margin: 16px 0 4px; }
+.modal h3 { font-size: 14px; margin: 12px 0 2px; }
+.modal p, .modal li { margin: 4px 0; }
+.modal ul { padding-left: 20px; margin: 4px 0; }
+.modal .x { position: sticky; top: 0; float: right; margin: -6px -10px 0 0; width: 34px; height: 34px; border: 0; border-radius: 17px; background: #fff; font-size: 24px; line-height: 1; cursor: pointer; color: #555; z-index: 1; }
+#welcome .card { max-width: 480px; font-size: 15px; }
+#welcome h1 { font-size: 22px; margin: 0 0 8px; }
+#welcome .go { font-size: 15px; padding: 7px 16px; background: #1e3cc8; color: #fff; }
+#welcome .row2 { display: flex; gap: 12px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.fine { color: #777; font-size: 12px; margin-top: 12px; }
+#cLead { margin: 0 0 8px; }
+#cLead h2 { font-size: 17px; margin: 0 0 2px; }
+@media (max-width: 700px) {
+  html, body { font-size: 14px; }
+  #panel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 42vh; border-radius: 12px 12px 0 0; padding: 4px 16px 12px; }
+  #panel.full { max-height: 85vh; }
+  #grab { display: block; width: 100%; border: 0; background: none; padding: 6px 0 4px; cursor: pointer; }
+  #grab::before { content: ''; display: block; width: 40px; height: 5px; border-radius: 3px; background: #bbb; margin: 0 auto; }
+  #panel .sub { display: none; }
+  #busyChip { left: 50%; }
+  #cHead { position: static; padding: 8px 16px 6px; }
+  #cTable { overflow-x: auto; }
+  #cTable th { position: static; }
+  #cDetail { position: static; }
+  .desk { display: none; }
+  .modal { padding: 8px; }
+  .modal .card { padding: 14px 16px; }
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="busyChip">Working…</div>
+<div id="panel">
+  <button id="grab" aria-label="Expand or shrink the panel"></button>
+  <h1>Peg Hunt Map</h1>
+  <p class="sub">Where in California is a die-cast hunting trip worth starting?</p>
+  <div id="tabs">
+    <button id="tabB" data-m="B" class="on">Map</button>
+    
+    <button id="tabC" data-m="C">Cities</button>
+  </div>
+  <div id="cityNote" class="hint hide"></div>
+  
+  <div id="paneB" data-mode="B">
+    <div class="row"><span class="lbl">Round trip of</span>
+      <label><input type="radio" name="budget" value="1"> 1 h</label>
+      <label><input type="radio" name="budget" value="2" checked> 2 h</label>
+      <label><input type="radio" name="budget" value="3"> 3 h</label>
+    </div>
+  </div>
+  <div id="legend"></div>
+  <div id="legendStores" class="muted"></div>
+  <div id="status" class="muted"></div>
+  
+  <div id="tour" data-mode="B"></div>
+  
+  <details class="opts" id="opts"><summary>Map options</summary>
+    <div class="row"><span class="lbl">Colour by</span>
+      <label><input type="radio" name="mode" value="w" checked> stores weighted by competition</label>
+      <label><input type="radio" name="mode" value="n"> plain store count</label>
+    </div>
+    <div class="row"><label><input type="checkbox" id="drug" checked> include drugstores (Walgreens, CVS)</label></div>
+    <div class="row"><span class="lbl">Show</span>
+      <label><input type="checkbox" id="showStores"> stores</label>
+      <label><input type="checkbox" id="showPop"> population</label>
+    </div>
+    <div class="row"><span class="lbl">Basemap</span> <span class="seg" id="basemap"></span></div>
+    <div class="row"><label><input type="checkbox" id="autoZoom" checked> zoom to the trip</label></div>
+  </details>
+  <div class="foot"><a data-how="what">How it works</a> · Made by <a href="https://www.linkedin.com/in/zhihui-chen-6a8368199" target="_blank" rel="noopener">Zhihui Chen</a></div>
+</div>
+<div id="cityView">
+  <div id="cHead">
+    <h1>Peg Hunt Map</h1>
+    <span id="cTabs"><button data-m="B">Map</button><button data-m="C" class="on">Cities</button></span>
+    <div id="cControls">
+      <label>Area: <select id="cMetro"></select></label>
+      <span>Round trip of <label><input type="radio" name="cBudget" value="1"> 1 h</label> <label><input type="radio" name="cBudget" value="2" checked> 2 h</label> <label><input type="radio" name="cBudget" value="3"> 3 h</label></span>
+      <label>Find a city: <input type="search" id="cSearch" placeholder="name…" size="14"></label>
+      <button class="btn hide" id="cReset">Reset zoom</button>
+    </div>
+  </div>
+  <div id="cBody">
+    <div id="cLead">
+      <h2>Where I'd go hunting in California</h2>
+      <div class="muted">Every city with 10,000+ residents, scored by the best round trip from a typical resident's home: the same scores as the map.
+        <a class="linkish" data-how="cities">How the numbers are made</a></div>
+    </div>
+    <div class="cgrid">
+      <div>
+        <div id="cScatter"><div id="cTip"></div></div>
+        <div class="muted" id="cScatterNote">Each dot is a city. Further right = a better trip from home; lower = fewer people sharing each store near home.
+          Click a dot for details<span class="desk">, drag a rectangle to zoom in</span>.
+          <div id="cLegend" style="margin-top:4px"></div></div>
+      </div>
+      <div id="cDetail"></div>
+    </div>
+    <div id="cTable"></div>
+    <details class="opts" id="cOpts"><summary>Score options</summary>
+      <div class="row"><span class="lbl">Score</span> <label><input type="radio" name="cMode" value="w" checked> stores weighted by competition</label> <label><input type="radio" name="cMode" value="n"> plain store count</label></div>
+      <div class="row"><label><input type="checkbox" id="cDrug" checked> include drugstores (Walgreens, CVS)</label>
+        <label><input type="checkbox" id="cHide"> hide flagged cities</label></div>
+    </details>
+    <div class="foot"><span id="cStatus"></span> · <a data-how="what">How it works</a> · Made by <a href="https://www.linkedin.com/in/zhihui-chen-6a8368199" target="_blank" rel="noopener">Zhihui Chen</a></div>
+  </div>
+</div>
+<div class="modal" id="welcome" role="dialog" aria-modal="true" aria-labelledby="wTitle">
+  <div class="card">
+    <h1 id="wTitle">Peg Hunt Map</h1>
+    <p>Some people collect small die-cast toy cars, and the best part is the hunt: driving from store to store to check the toy aisle
+  before anyone else does. Collectors call it <b>peg hunting</b>, after the hooks the cars hang on.</p>
+<p>A good hunt needs plenty of stores within reach and few other hunters sharing them. This map scores every spot in California
+  by the <b>best round trip you could start there</b>: darker red means better hunting.</p>
+<p>Click anywhere to see that trip, or open <b>Cities</b> to see where I'd go.</p>
+    <div class="row2"><button class="btn go" id="wGo">Explore the map</button> <a class="linkish" data-how="what">How it works</a></div>
+    <div class="fine">A weekend side project by Zhihui Chen. Not affiliated with any toy maker or retailer.</div>
+  </div>
+</div>
+<div class="modal" id="how" role="dialog" aria-modal="true" aria-labelledby="hTitle">
+  <div class="card">
+    <button class="x" aria-label="Close">×</button>
+    <h1 id="hTitle" style="font-size:18px;margin:0">How it works</h1>
+    <h2 id="how-what">What the map shows</h2>
+<p>California is divided into hexagons about 1 km across. Each one is coloured by the <b>best trip that starts and ends there</b> within
+  1, 2 or 3 hours, counting both the driving and the time spent inside each store. Click a hexagon to see that trip: the stops in order and the clock.</p>
+<p>A trip's score reads as <b>"about how many typical stores it is worth"</b>. A typical store is a Dollar Tree shared by the usual number of
+  nearby residents. "≈ 8 typical stores' worth" means a trip as good as visiting eight of those.</p>
+<h2 id="how-steps">How it is calculated</h2>
+<ol style="padding-left:20px;margin:4px 0">
+  <li><b>Stores.</b> Ten chains that sell die-cast cars: Walmart, Target, Fred Meyer, Safeway (with Vons, Pavilions and Albertsons), Dollar Tree, Dollar General, Family Dollar, Hobby Lobby, Walgreens and CVS.
+    Walgreens and CVS can be switched off under <i>Map options</i>.</li>
+  <li><b>Competition.</b> For every neighbourhood we take its residents (Census estimates for July 2025) and the stores they can reach within a 15-minute drive,
+    and share the residents among those stores. A store's competition is how many residents it ends up serving.</li>
+  <li><b>Store value.</b> Competition is compared with one fixed California-wide level: a store at that level is worth 1, one with half the competition
+    is worth 2. Values are capped between 0.25 and 2, so a few isolated stores cannot dominate.
+    Then the value is multiplied by the store's stock weight (below).</li>
+  <li><b>Trip.</b> For each hexagon, a search picks the stores, in driving order, with the highest total value whose driving plus store time
+    fits the budget: <b>20 min</b> inside each Walmart, Target and Fred Meyer, <b>10 min</b> inside every other store. The search finds a near-best trip
+    (spot-checked against an exact solver).</li>
+</ol>
+<p>Because the reference level is the same everywhere, scores compare across cities: the same chain is worth less in a crowded metro than in a
+  town with few shoppers per store. <i>Plain store count</i> (under <i>Map options</i>) skips all of this and counts every store as 1.</p>
+<h3 id="how-cities">The city ranking</h3>
+<p>Cities are 2020 census places with 10,000+ residents in 2025 (incorporated cities plus unincorporated communities, "CDP"), grouped by the Census Bureau's
+  metro areas. A city's score is the <b>median over its residents</b> of the map's score where they live: half live where trips score higher, half lower.
+  "People per shelf" is how many residents share each store within 10 minutes of a typical home.</p>
+<p>A ⚑ marks a score to read with care: <i>few stores</i> (the best trips use fewer than 8 different stores, so one closing moves the score),
+  <i>uneven</i> (the city's neighbourhoods differ a lot), or <i>seasonal?</i> (many homes per resident, so winter visitors and tourists who compete
+  for the same stores are not counted). Easiest and hardest areas inside large cities are named after the nearest OpenStreetMap neighbourhood;
+  they are approximate, not official boundaries.</p>
+<h2 id="how-assume">Assumptions</h2>
+<p><b>Stock weight per chain</b>, relative to a Dollar Tree = 1. This is my own judgement from hunting, not measured data; different weights would change
+  which stores the trips favour.</p>
+<table id="capTable"><tr><td class="num"><b>2</b></td><td>Walmart, Target, Fred Meyer<br><span class="muted">most stock, plus premium and other die-cast lines</span></td></tr><tr><td class="num"><b>1.5</b></td><td>Safeway / Vons / Pavilions / Albertsons<br><span class="muted">between the two</span></td></tr><tr><td class="num"><b>1</b></td><td>Dollar Tree, Dollar General, Family Dollar, Hobby Lobby<br><span class="muted">mostly mainline only</span></td></tr><tr><td class="num"><b>0.5</b></td><td>Walgreens, CVS<br><span class="muted">least stock</span></td></tr></table>
+<p>A store with weight 2 counts as two stores: it draws twice the share of the residents who can reach it, and its value is doubled.</p>
+<p><b>Drive times assume light traffic.</b> They come from speed limits and road types in OpenStreetMap, with a short delay at each traffic light and no
+  traffic data. Checked against Google Maps on 40 California trips, they match Google's best case; on a normal Saturday morning the drive takes about
+  <b>20 % longer</b>, up to 40 % on short city legs. A "2-hour" trip takes roughly 2 h 15–25 min in practice, more at rush hour.
+  Comparisons between places are much less affected than the clock.</p>
+<h2 id="how-limits">What the map cannot tell you</h2>
+<ul>
+  <li><b>A store is not stock.</b> Whether a store carries die-cast cars at all, when it restocks and whether someone got there first are not in any data.</li>
+  <li><b>Residents are not hunters.</b> Competition is estimated from where people live; tourists, commuters and resellers are not counted, so college towns
+    and tourist areas may be off.</li>
+  <li><b>Population is a 2025 estimate spread the 2020 way.</b> Each city's 2025 total is placed where the 2020 census found its people, so a brand-new subdivision is under-counted and older neighbourhoods slightly over-counted.</li>
+  <li><b>Prisons and military bases count as residents.</b> The census counts inmates and barracks residents where they live, so competition near them is overstated.</li>
+  <li><b>Dense cities saturate.</b> Around Los Angeles almost every hexagon can fill its budget, so the map differs less from place to place there.</li>
+  <li><b>The map shows the stops, not the roads.</b> Numbered dots give the order; the Google Maps button plans the actual drive.</li>
+  <li><b>California only</b>, plus stores just across the Nevada, Oregon and Arizona lines where California trips reach them.</li>
+</ul>
+<h2 id="how-credits">Data and credits</h2>
+<ul>
+  <li>Roads and store locations: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>,
+    Open Database License (ODbL). Store data derived from OpenStreetMap is published under the same licence.</li>
+  <li>Store locations: <a href="https://alltheplaces.xyz/" target="_blank" rel="noopener">All The Places</a> (CC0).</li>
+  <li>Population: US Census Bureau, 2025 population estimates on 2020 Census blocks. City and metro boundaries: 2020 Census and TIGER/Line (public domain).</li>
+  <li>Base map: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> (OpenMapTiles, OpenStreetMap); satellite imagery:
+    USGS The National Map (USDA NAIP, public domain).</li>
+</ul>
+<p class="fine">Data as of October 2026; it is not updated. Store names belong to their owners; this is a personal side project,
+  not affiliated with any toy maker or retailer. The page sets no cookies and runs no analytics.</p>
+  </div>
+</div>
+<script>
+const TOPIC = {"reference_brand": "Dollar Tree", "worth_label": "stores worth hunting"};
+</script>
+<script>
+const $ = s => document.querySelector(s);
+// Public core of the viewer (PLAN §2.12). On its own it is the published static site: data come from the files next to the
+// page. The local admin build (hh/page.py adds web/admin/admin.js after this file) plugs in through MODES, api and HOOKS.
+// Extra map modes, by key ('A' = "trip from here"): { enter(), render(layers, op), click(e), escape(clearCity), hash(p),
+// reload(), tooltip(object, layer), restore(ll) }; the tab buttons and panes come with the admin markup (data-m, data-mode).
+const MODES = {};
+const HOOKS = {
+  storeFill: (f, vkey) => valueColor(f.properties[vkey]),   // fill of a store dot
+  storeLegendNote: () => '',                                // appended to the store-dot legend
+  storeTooltipNote: p => '',                                // appended to a store dot's tooltip
+  tourLayers: (t, layers) => {},                            // drawn under the stops of a round trip
+  unreachable: e => `Could not load the map data; check your connection and reload. (${e.message})`,
+  escape: [],                                               // run first on Esc; one returning true ends it
+  init: [],                                                 // run with the metadata, before the first view is restored
+};
+const AREA = () => state.meta ? state.meta.spec.study_area_name : 'the area';
+const state = { mode: 'B', meta: null, layer: null, layerKey: null, layerData: null, stores: null, pop: null, popData: null, origin: null, tour: null,
+                ll: null, basemap: 'light', labelsBefore: undefined, ready: false, layerReq: 0, tourReq: 0, fitNext: true };
+const RAMP = ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026','#4a0014'];
+// on the dark and satellite basemaps the best hexagons must be the brightest, not the darkest (inferno-like)
+const RAMP_DARK = ['#3b0f70','#57106e','#721f81','#8c2981','#b73779','#de4968','#f7705c','#fe9f6d','#fecf92','#fcfdbf'];
+const GMAPS_MAX_WAYPOINTS = 9;   // Google Maps directions URLs accept at most 9 stops between origin and destination
+
+// ---------------- basemaps ----------------
+const OFM = 'https://tiles.openfreemap.org/styles/';
+// USGS The National Map orthoimagery (USDA NAIP, public domain; no key). Esri World Imagery needs an ArcGIS licence.
+const USGS_TILES = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
+const BASEMAPS = {
+  light:     { label: 'Light',     style: OFM + 'positron' },
+  streets:   { label: 'Streets',   style: OFM + 'liberty', roadsOnTop: true },
+  dark:      { label: 'Dark',      style: OFM + 'dark', dark: true },
+  satellite: { label: 'Satellite', style: OFM + 'liberty', dark: true, imagery: true },
+};
+const EMPTY_STYLE = { version: 8, sources: {}, layers: [] };
+async function basemapStyle(key) {
+  const b = BASEMAPS[key];
+  if (!b.imagery) return b.style;
+  const r = await fetch(b.style);
+  if (!r.ok) throw new Error(`label style answered ${r.status}`);
+  const s = await r.json();
+  s.sources.usgs = { type: 'raster', tiles: [USGS_TILES], tileSize: 256, maxzoom: 16,
+    attribution: 'Imagery <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank">USGS The National Map</a> (USDA NAIP)' };
+  // imagery underneath, then only the place / road labels of the vector style, drawn white on a dark halo
+  const labels = s.layers.filter(l => l.type === 'symbol' && !/poi/.test(l.id))
+    .map(l => ({ ...l, paint: { ...(l.paint || {}), 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.85)', 'text-halo-width': 1.4 } }));
+  s.layers = [{ id: 'usgs-imagery', type: 'raster', source: 'usgs' }, ...labels];
+  return s;
+}
+function onDark() { return !!BASEMAPS[state.basemap].dark; }
+function ink(a = 230) { return onDark() ? [255, 255, 255, a] : [20, 20, 20, a]; }
+function casing() { return onDark() ? [0, 0, 0, 170] : [255, 255, 255, 220]; }
+function hexOpacity() {   // fade the hexagons when zoomed in, so the roads under them stay readable
+  const z = map.getZoom(), base = state.basemap === 'satellite' ? 0.65 : 0.8;
+  return base * (z <= 10 ? 1 : z >= 14 ? 0.6 : 1 - 0.4 * (z - 10) / 4);
+}
+
+// ---------------- URL state (#m=A&t=120&ll=…): reload or share a link to get the same view ----------------
+function readHash() { const o = {}; location.hash.slice(1).split('&').forEach(kv => { const i = kv.indexOf('='); if (i > 0) o[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); }); return o; }
+const HASH = readHash();
+function lsGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+function saveHash() {
+  if (!state.ready) return;
+  const p = [['m', state.mode], ['w', isWeighted() ? 1 : 0], ['drug', $('#drug').checked ? 1 : 0], ['bm', state.basemap]];
+  if (state.mode === 'C') { p.push(['b', budgetH()], ['g', C.metro || 'all']); if (C.hideFlagged) p.push(['hf', 1]); if (C.sel) p.push(['c', C.sel]); history.replaceState(null, '', '#' + p.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')); return; }
+  if (state.mode === 'B') p.push(['b', document.querySelector('input[name=budget]:checked').value]);
+  else MODES[state.mode].hash(p);
+  if (state.ll) p.push(['ll', state.ll.map(v => v.toFixed(5)).join(',')]);
+  const c = map.getCenter(); p.push(['v', `${map.getZoom().toFixed(2)},${c.lat.toFixed(4)},${c.lng.toFixed(4)}`]);
+  history.replaceState(null, '', '#' + p.map(([k, v]) => `${k}=${v}`).join('&'));
+}
+
+state.basemap = BASEMAPS[HASH.bm] ? HASH.bm : (BASEMAPS[lsGet('hh.basemap')] ? lsGet('hh.basemap') : 'light');
+const map = new maplibregl.Map({ container: 'map', style: EMPTY_STYLE, center: [-118.25, 34.05], zoom: 9 });
+map.addControl(new maplibregl.NavigationControl());
+// interleaved: the hexagons are drawn under the basemap's labels (beforeId), routes and pins on top
+const overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
+map.addControl(overlay);
+let originMarker = null;
+map.on('style.load', () => {
+  // hexagons go under the labels; on Streets also under the road network, so the roads stay readable (Light / Dark keep a clean heat map)
+  const L = map.getStyle().layers, roads = BASEMAPS[state.basemap].roadsOnTop && L.find(l => l['source-layer'] === 'transportation' && l.type === 'line');
+  const under = roads || L.find(l => l.type === 'symbol');
+  state.labelsBefore = under ? under.id : undefined;
+  render();
+});
+let lastOpacity = null;
+map.on('zoomend', () => { const o = hexOpacity(); if (lastOpacity === null || Math.abs(o - lastOpacity) > 0.03) render(); });
+map.on('moveend', saveHash);
+let basemapReq = 0;
+async function setBasemap(key) {
+  if (!BASEMAPS[key]) key = 'light';
+  const id = ++basemapReq;
+  let style;
+  try { style = await basemapStyle(key); }
+  catch (e) { $('#status').innerHTML = `<span class="warn">Could not load the ${BASEMAPS[key].label.toLowerCase()} basemap (${e.message}).</span>`; return; }
+  if (id !== basemapReq) return;   // another basemap was picked while this one was loading
+  state.basemap = key;
+  lsSet('hh.basemap', key);
+  document.querySelectorAll('#basemap .btn').forEach(b => b.classList.toggle('on', b.dataset.k === key));
+  state.labelsBefore = undefined; render();   // no beforeId while the old style is torn down
+  map.setStyle(style, { diff: false });
+}
+$('#basemap').innerHTML = Object.entries(BASEMAPS).map(([k, b]) => `<button class="btn" data-k="${k}">${b.label}</button>`).join('');
+document.querySelectorAll('#basemap .btn').forEach(b => b.addEventListener('click', () => { if (b.dataset.k !== state.basemap || !map.isStyleLoaded()) setBasemap(b.dataset.k); }));
+
+// ---------------- requests: one place for the busy indicator and readable errors ----------------
+let busyN = 0;
+function busy(d, label) {
+  busyN = Math.max(0, busyN + d);
+  if (d > 0) $('#busyChip').textContent = label || 'Working…';
+  document.body.classList.toggle('busy', busyN > 0);
+}
+async function getJSON(url, label) {
+  busy(1, label);
+  try {
+    const r = await fetch(url);
+    let body = null;
+    try { body = await r.json(); } catch (_) {}
+    if (!r.ok) {
+      const d = body && body.detail, msg = d && (d.detail || d);
+      return { err: typeof msg === 'string' ? msg : (msg ? JSON.stringify(msg) : `The map server answered ${r.status}.`) };
+    }
+    return { data: body };
+  } catch (e) {
+    return { err: HOOKS.unreachable(e) };
+  } finally { busy(-1); }
+}
+const warnHTML = msg => `<div class="warn">${msg}</div>`;
+
+// ---------------- data: the answers of the local server's API, rebuilt from the static files (the admin build swaps in the server) ----------------
+const SD = { cells: null, cellPos: null, stores: null, layers: {}, tours: {} };
+async function staticCells() {
+  if (SD.cells) return null;
+  const { data, err } = await getJSON('data/cells.json', 'Loading the map…');
+  if (err) return err;
+  SD.cells = data; SD.cellPos = new Map(data.h3.map((h, i) => [h, i]));
+  return null;
+}
+async function staticStores() {
+  if (SD.stores) return null;
+  const { data, err } = await getJSON('data/stores.json', 'Loading stores…');
+  if (err) return err;
+  SD.stores = data; return null;
+}
+async function staticLayer(key) {
+  const e = await staticCells(); if (e) return { err: e };
+  if (!SD.layers[key]) { const { data, err } = await getJSON(`data/layers/${key}.json`, 'Loading the map layer…'); if (err) return { err }; SD.layers[key] = data; }
+  const L = SD.layers[key];
+  return { data: { layer: key, h3: SD.cells.h3, score: L.score, n_stops: L.n_stops, time_used_min: L.time_used_min, meta: state.meta.layers[key] } };
+}
+function distM(lon1, lat1, lon2, lat2) {
+  const r = Math.PI / 180, x = (lon2 - lon1) * r * Math.cos((lat1 + lat2) / 2 * r), y = (lat2 - lat1) * r;
+  return 6371000 * Math.hypot(x, y);
+}
+async function staticOrigin(lon, lat) {   // same rule as the server: the clicked hexagon, else the nearest one with a road within 3 km
+  const e = await staticCells(); if (e) return { err: e };
+  const h = h3.latLngToCell(lat, lon, 8);
+  let i = SD.cellPos.get(h), snapped = 0;
+  if (i === undefined) {
+    let best = null;
+    for (const c of h3.gridDisk(h, 4)) {
+      const j = SD.cellPos.get(c); if (j === undefined) continue;
+      const [la, lo] = h3.cellToLatLng(c), d = distM(lon, lat, lo, la);
+      if (!best || d < best.d) best = { j, d };
+    }
+    if (!best || best.d > state.meta.snap_max_m) return { err: `No trip starts here: this spot is outside ${AREA()} or more than ${state.meta.snap_max_m / 1000} km from a road. Try a spot closer to a town.` };
+    i = best.j; snapped = Math.round(best.d);
+  }
+  const [la, lo] = h3.cellToLatLng(SD.cells.h3[i]);
+  return { data: { h3: SD.cells.h3[i], lon: lo, lat: la, rep_lon: SD.cells.rep_lon[i], rep_lat: SD.cells.rep_lat[i], snapped_m: snapped } };
+}
+async function staticTour(hc, key) {
+  const lay = await staticLayer(key); if (lay.err) return lay;
+  const e = await staticStores(); if (e) return { err: e };
+  if (!SD.tours[key]) {
+    const { data, err } = await getJSON(`data/tours/${key}.json`, 'Loading the trip…'); if (err) return { err };
+    for (const k of Object.keys(SD.tours)) if (k !== state.layerKey) delete SD.tours[k];   // keep memory small on phones
+    SD.tours[key] = data;
+  }
+  const T = SD.tours[key], i = SD.cellPos.get(hc), S = SD.stores, L = lay.data;
+  if (i === undefined) return { err: 'This hexagon has no trip.' };
+  const weighted = key.endsWith('_w'), vcol = key.includes('_drug_') ? 'value_all' : 'value_nodrug';
+  const home = [SD.cells.rep_lon[i], SD.cells.rep_lat[i]], legT = T.legs[i].map(x => x * 6);   // tenths of a minute -> seconds
+  const stops = [], legs = [];
+  let clock = 0, prev = home;
+  T.stops[i].forEach((si, k) => {
+    const shown = S.shown[si], pos = shown ? [S.lon[si], S.lat[si]] : null, dwell = state.meta.dwell_min[S.brand[si]];
+    legs.push({ drive_s: legT[k], path: pos && prev ? [prev, pos] : null });
+    const arrive = clock + legT[k];
+    stops.push({ order: k + 1, brand: S.brand[si], name: S.name[si], address: S.address[si], city: S.city[si], lon: pos && pos[0], lat: pos && pos[1],
+                 approx: shown || S.approx_lon[si] == null ? null : [S.approx_lon[si], S.approx_lat[si]], approx_r_m: S.approx_r_m,
+                 displayable: shown, value: weighted ? S[vcol][si] : 1, dwell_min: dwell, arrive_min: arrive / 60, depart_min: arrive / 60 + dwell, leg_drive_min: legT[k] / 60 });
+    clock = arrive + dwell * 60;
+    if (pos) prev = pos;
+  });
+  if (stops.length) legs.push({ drive_s: legT[legT.length - 1], path: [prev, home] });
+  const T_min = +key.split('h_')[0] * 60;
+  return { data: { h3: hc, layer: key, score: L.score[i], n_stops: L.n_stops[i], time_used_min: L.time_used_min[i], budget_min: T_min,
+    drive_min: legT.reduce((a, b) => a + b, 0) / 60, dwell_min: stops.reduce((a, s) => a + s.dwell_min, 0),
+    origin: { h3: hc, rep_lon: home[0], rep_lat: home[1] }, stops, legs, straight: true } };
+}
+async function staticStoresGeo() {
+  const e = await staticStores(); if (e) return { err: e };
+  const S = SD.stores, features = [];
+  for (let i = 0; i < S.brand.length; i++) if (S.shown[i]) features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [S.lon[i], S.lat[i]] },
+    properties: { brand: S.brand[i], name: S.name[i], address: S.address[i], city: S.city[i], displayable: true, in_study_area: S.in_study_area[i],
+                  value_all: S.value_all[i], value_nodrug: S.value_nodrug[i], pop_15min: S.pop_15min[i] } });
+  return { data: { type: 'FeatureCollection', features } };
+}
+const api = {
+  meta: () => getJSON('data/meta.json', 'Loading…'),
+  layer: key => staticLayer(key),
+  origin: (lon, lat) => staticOrigin(lon, lat),
+  tour: (hc, key) => staticTour(hc, key),
+  stores: () => staticStoresGeo(),
+  pop: () => getJSON('data/pop_cells.json', 'Loading population…'),
+  cities: () => getJSON('data/cities.json', 'Loading cities…'),
+  outlines: () => getJSON('data/city_outlines.geojson', 'Loading city outlines…'),
+};
+// "≈ 7 typical stores' worth": the score in words (a typical store = the topic's reference brand at the usual level of competition)
+function worthNum(v) { return v < 1.5 ? v.toFixed(1) : String(Math.round(v)); }
+function worthText(v) { return `≈ ${worthNum(v)} typical stores' worth`; }
+// map padding that keeps a trip clear of the panel (left on a computer, at the bottom on a phone)
+function isPhone() { return window.matchMedia('(max-width: 700px)').matches; }
+function mapPad() {
+  return isPhone() ? { left: 30, right: 30, top: 40, bottom: $('#panel').offsetHeight + 20 } : { left: $('#panel').offsetWidth + 40, top: 50, right: 60, bottom: 60 };
+}
+
+// ---------------- colours and legends ----------------
+function hex2rgb(c) { return [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)]; }
+function colorFor(v, max) {
+  if (v <= 0) return [215, 215, 215, 90];
+  const t = Math.min(1, v / Math.max(max, 1e-9)), ramp = onDark() ? RAMP_DARK : RAMP;
+  return [...hex2rgb(ramp[Math.min(ramp.length - 1, Math.floor(t * (ramp.length - 1) + 0.5))]), 190];
+}
+function arrayMax(a) { let m = -Infinity; for (let i = 0; i < a.length; i++) if (a[i] > m) m = a[i]; return m; }
+function percentile(a, p) { const b = Array.from(a).sort((x, y) => x - y); return b.length ? b[Math.min(b.length - 1, Math.floor(p * (b.length - 1)))] : 0; }
+function valueColor(v) {   // store value (stock weight x competition) 0.25 .. 4 -> blue (competed) .. red (uncontested)
+  if (v == null) return [150,150,150,120];
+  const t = Math.max(0, Math.min(1, (Math.log2(v) + 2) / 4));   // log2: 0.25 -> 0, 1 -> 0.5, 4 -> 1
+  const r = Math.round(40 + 200 * t), g = Math.round(90 + 60 * (1 - Math.abs(t - 0.5) * 2)), b = Math.round(220 - 200 * t);
+  return [r, g, b, 220];
+}
+function legendBar(isCount, max) {   // the round-trip map: a colour bar from fewer to more, no numbers to decode
+  const ramp = onDark() ? RAMP_DARK : RAMP;
+  const cap = isCount ? `stores on the best ${budgetH()}-hour round trip from each spot (up to ${max})` : `${TOPIC.worth_label} on the best ${budgetH()}-hour round trip from each spot`;
+  return `<div class="legbar" style="background:linear-gradient(to right, ${ramp.join(',')})"></div>` +
+    `<div class="legends"><span>fewer</span><span>more</span></div><div class="legcap">${cap} · <span class="zero"></span> no store within reach</div>`;
+}
+function legendStores() {
+  if (!$('#showStores').checked) { $('#legendStores').innerHTML = ''; return; }
+  const dot = v => `<span class="dot" style="background:rgb(${valueColor(v).slice(0,3).join(',')})"></span>`;
+  const [lo, hi] = state.meta.value_clip;
+  $('#legendStores').innerHTML = `Store dots: ${dot(lo)} shared by many residents … ${dot(hi)} few; bigger = more stock.` + HOOKS.storeLegendNote();
+}
+
+function isWeighted() { return document.querySelector('input[name=mode]:checked').value === 'w'; }
+function layerKey() {
+  const b = document.querySelector('input[name=budget]:checked').value;
+  const m = document.querySelector('input[name=mode]:checked').value;
+  return `${b}h_${$('#drug').checked ? 'drug' : 'nodrug'}_${m}`;
+}
+function fmtMin(m) { return `${Math.round(m)} min`; }
+
+// ---------------- fit the map to a trip (skipped when it is already in view and big enough to read) ----------------
+function fitTo(coords, force) {
+  if (!$('#autoZoom').checked || !coords.length) return;
+  const b = [180, 90, -180, -90];
+  for (const [x, y] of coords) { b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); }
+  const c = map.getContainer(), pad = mapPad();
+  if (!force) {
+    const p1 = map.project([b[0], b[3]]), p2 = map.project([b[2], b[1]]);
+    const inView = p1.x >= pad.left && p1.y >= pad.top && p2.x <= c.clientWidth - pad.right && p2.y <= c.clientHeight - pad.bottom;
+    const readable = (p2.x - p1.x) > 0.25 * (c.clientWidth - pad.left) || (p2.y - p1.y) > 0.25 * (c.clientHeight - pad.bottom);
+    if (inView && readable) return;
+  }
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: pad, maxZoom: 14, duration: 700 });
+}
+
+// ---------------- "Open in Google Maps": split into parts of at most 9 intermediate stops ----------------
+function gmapsHTML(points, names, hiddenStops) {
+  if (points.length < 3) return '';
+  const ll = p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`, parts = [];
+  for (let i = 0; i < points.length - 1; i += GMAPS_MAX_WAYPOINTS + 1) {
+    const seg = points.slice(i, i + GMAPS_MAX_WAYPOINTS + 2), j = i + seg.length - 1;
+    const url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${ll(seg[0])}&destination=${ll(seg[seg.length - 1])}` +
+      (seg.length > 2 ? '&waypoints=' + seg.slice(1, -1).map(ll).join('%7C') : '');
+    parts.push({ url, from: names[i], to: names[j] });
+  }
+  const nStops = points.length - 2;
+  const btns = parts.length === 1
+    ? `<a class="btn" target="_blank" rel="noopener" href="${parts[0].url}">Open in Google Maps</a>`
+    : parts.map((p, k) => `<a class="btn" target="_blank" rel="noopener" href="${p.url}">Google Maps part ${k + 1}: ${p.from} → ${p.to}</a>`).join('');
+  const split = parts.length > 1 ? ` Google Maps takes at most ${GMAPS_MAX_WAYPOINTS} stops between start and end, so this ${nStops}-stop trip is split into ${parts.length} parts: open them in order, each starts where the previous one ends.` : '';
+  const hid = hiddenStops ? ` Google's route skips the ${hiddenStops > 1 ? hiddenStops + ' stops' : 'stop'} drawn as a circle.` : '';
+  return `<div class="gmaps">${btns}<div class="muted">Real roads and live traffic, so Google's times will differ.${split}${hid}</div></div>`;
+}
+
+// ---------------- map layers ----------------
+function render() {
+  const layers = [];
+  const before = state.labelsBefore, op = hexOpacity(), ext = MODES[state.mode];
+  lastOpacity = op;
+  if (state.meta) layers.push(new deck.GeoJsonLayer({ id: 'study', data: state.meta.study_area, stroked: true, filled: false, getLineColor: onDark() ? [255,255,255,200] : [0,0,0,220],
+    getLineWidth: 2, lineWidthUnits: 'pixels', beforeId: before, updateTriggers: { getLineColor: [state.basemap] } }));
+  if (state.pop && $('#showPop').checked) {
+    if (!state.popData) { const pmax = arrayMax(state.pop.pop); state.popData = state.pop.h3.map((h, i) => ({ h, p: state.pop.pop[i], a: Math.round(30 + 200 * Math.sqrt(state.pop.pop[i] / pmax)) })); }
+    layers.push(new deck.H3HexagonLayer({ id: 'pop', data: state.popData, filled: true, extruded: false, stroked: false, pickable: true, beforeId: before,
+      getHexagon: d => d.h, getFillColor: d => [30, 100, 200, d.a] }));
+  }
+  if (ext && ext.render) ext.render(layers, op);
+  if (state.mode === 'B' && state.layer && !$('#showPop').checked) {
+    const L = state.layer, isCount = L.layer.endsWith('_n');
+    const absMax = arrayMax(L.score);
+    const max = isCount ? absMax : Math.max(percentile(L.score, 0.98), 1e-9);   // weighted: cap the scale at the 98th percentile
+    if (!state.layerData) state.layerData = L.h3.map((h, i) => ({ h, s: L.score[i], n: L.n_stops[i], t: L.time_used_min[i] }));
+    layers.push(new deck.H3HexagonLayer({ id: 'index', data: state.layerData, pickable: true, filled: true, extruded: false, stroked: false, beforeId: before,
+      getHexagon: d => d.h, getFillColor: d => colorFor(d.s, max), opacity: op, updateTriggers: { getFillColor: [L.layer, max, state.basemap] } }));
+    $('#legend').innerHTML = legendBar(isCount, absMax);
+  } else if ($('#showPop').checked) {
+    $('#legend').innerHTML = '<span class="muted">Population per hexagon (2025 estimate), darker = more people. The trip colours are hidden while this overlay is on.</span>';
+  }
+  legendStores();
+  if (state.stores && $('#showStores').checked) {
+    const vkey = $('#drug').checked ? 'value_all' : 'value_nodrug';
+    const feats = state.stores.features.filter(f => f.properties[vkey] != null);
+    layers.push(new deck.GeoJsonLayer({ id: 'stores', data: { type: 'FeatureCollection', features: feats }, pointType: 'circle', pickable: true,
+      getPointRadius: f => 3 + 3 * Math.sqrt(f.properties[vkey] || 1), pointRadiusUnits: 'pixels',
+      getFillColor: f => HOOKS.storeFill(f, vkey),
+      getLineColor: f => valueColor(f.properties[vkey]), getLineWidth: 1.5, lineWidthUnits: 'pixels', stroked: true,
+      updateTriggers: { getFillColor: [vkey], getLineColor: [vkey], getPointRadius: [vkey] } }));
+  }
+  if (state.cityHL && C.outlines && state.mode !== 'C') {
+    const f = C.outlines.features.find(f => f.properties.id === state.cityHL);
+    if (f) layers.push(new deck.GeoJsonLayer({ id: 'city-outline', data: f, stroked: true, filled: false, getLineColor: onDark() ? [255, 220, 0, 230] : [120, 20, 160, 230],
+      getLineWidth: 3, lineWidthUnits: 'pixels', updateTriggers: { getLineColor: [state.basemap] } }));
+  }
+  if (state.mode === 'B' && state.tour) {
+    const t = state.tour;
+    HOOKS.tourLayers(t, layers);   // the static site has no road shapes and leaves the route to Google Maps
+    const areas = t.stops.filter(s => s.approx);   // stores whose location is not republished: a ~1 km "somewhere here" circle
+    if (areas.length) layers.push(new deck.ScatterplotLayer({ id: 'stop-areas', data: areas, getPosition: d => d.approx, getRadius: d => d.approx_r_m, radiusUnits: 'meters',
+      getFillColor: onDark() ? [255, 255, 255, 45] : [30, 60, 200, 35], getLineColor: onDark() ? [255, 255, 255, 200] : [30, 60, 200, 200], getLineWidth: 1.5, lineWidthUnits: 'pixels',
+      stroked: true, pickable: true, updateTriggers: { getFillColor: [state.basemap], getLineColor: [state.basemap] } }));
+    const stops = t.stops.filter(s => s.lon != null);   // stores whose location is not republished come without coordinates
+    layers.push(new deck.ScatterplotLayer({ id: 'stops', data: stops, getPosition: d => [d.lon, d.lat], getRadius: 9, radiusUnits: 'pixels',
+      getFillColor: [255,255,255,240], getLineColor: [20,20,20,255], getLineWidth: 2, lineWidthUnits: 'pixels', stroked: true, pickable: true }));
+    const labels = [...stops.map(d => ({ p: [d.lon, d.lat], n: d.order })), ...areas.map(d => ({ p: d.approx, n: d.order }))];
+    layers.push(new deck.TextLayer({ id: 'stop-labels', data: labels, getPosition: d => d.p, getText: d => String(d.n), getSize: 12,
+      getColor: onDark() ? [255,255,255,255] : [20,20,20,255], fontWeight: 700, getTextAnchor: 'middle', getAlignmentBaseline: 'center',
+      outlineWidth: 3, outlineColor: onDark() ? [0,0,0,200] : [255,255,255,230], fontSettings: { sdf: true }, updateTriggers: { getColor: [state.basemap] } }));
+  }
+  overlay.setProps({ layers, getTooltip: ({ object, layer }) => {
+    if (!object) return null;
+    for (const m of Object.values(MODES)) { const tip = m.tooltip && m.tooltip(object, layer); if (tip != null) return tip; }
+    if (layer.id === 'index') return object.n ? `${isWeighted() ? worthText(object.s) + ' · ' + object.n + ' stops' : object.n + ' stores'} on the best ${budgetH()}-hour round trip\nclick to see this trip`
+                                              : 'no store within reach of a round trip from here';
+    if (layer.id === 'pop') return `${object.p.toLocaleString()} residents`;
+    if (layer.id === 'stop-areas') return `${object.order}. ${object.brand} is somewhere in this circle\n(its exact location is not republished here; see the trip panel)`;
+    if (layer.id === 'stops') return `${object.order}. ${object.brand} — ${object.address || ''} ${object.city || ''}\narrive at minute ${Math.round(object.arrive_min)}, stay ${object.dwell_min} min, worth ${object.value}`;
+    const p = object.properties || object;
+    const vkey = $('#drug').checked ? 'value_all' : 'value_nodrug';
+    return `${p.brand}: ${p.address || ''} ${p.city || ''}\nworth ${p[vkey]} · ${(p.pop_15min || 0).toLocaleString()} residents within ${state.meta.params.competition_radius_min} min${HOOKS.storeTooltipNote(p)}`;
+  } });
+  saveHash();
+}
+
+// ---------------- "where to start" mode (precomputed round trips) ----------------
+async function loadLayer() {
+  const key = layerKey();
+  if (key === state.layerKey) { render(); return; }
+  const id = ++state.layerReq;
+  const { data, err } = await api.layer(key);
+  if (id !== state.layerReq) return;
+  if (err) { $('#status').innerHTML = `<span class="warn">${err}</span>`; return; }
+  $('#status').innerHTML = '';
+  state.layer = data; state.layerKey = key; state.layerData = null;
+  render();
+  if (state.origin) showTour();
+}
+
+function hintB() {
+  $('#tour').innerHTML = `<div class="hint">Click anywhere in ${AREA()} to see the best round trip from that spot.</div>`;
+}
+// static site: a bubble at the start that sends people to Google Maps for the actual roads
+let tripPopup = null;
+function closeTripPopup() { if (tripPopup) { tripPopup.remove(); tripPopup = null; } }
+function gmapsSearch(s) { return `https://www.google.com/maps/search/${encodeURIComponent(s.brand)}/@${s.approx[1]},${s.approx[0]},15z`; }
+function showTripPopup(t, home, shown, hidden) {
+  closeTripPopup();
+  const isCount = t.layer.endsWith('_n');
+  const gm = gmapsHTML([home, ...shown.map(s => [s.lon, s.lat]), home], ['start', ...shown.map(s => 'stop ' + s.order), 'back to start'], hidden)
+    .replace('>Open in Google Maps<', '>Get directions in Google Maps<');
+  const off = { top: [0, 6], bottom: [0, -38], left: [12, -20], right: [-12, -20], 'top-left': [6, 4], 'top-right': [-6, 4], 'bottom-left': [6, -34], 'bottom-right': [-6, -34] };
+  tripPopup = new maplibregl.Popup({ offset: off, closeOnClick: false, maxWidth: '260px', className: 'trip-pop' })
+    .setLngLat(home)
+    .setHTML(`<div class="tp-head"><b>${isCount ? t.n_stops + ' stores' : worthText(t.score)}</b><br><span class="muted">${t.n_stops} stops in ${t.budget_min / 60} h, back where you started</span></div>${gm}`)
+    .addTo(map);
+}
+function clearOriginB() {
+  closeTripPopup();
+  state.origin = null; state.tour = null; state.ll = null;
+  if (originMarker) { originMarker.remove(); originMarker = null; }
+}
+async function setOrigin(lon, lat, fit = true) {
+  const id = ++state.tourReq;
+  const { data, err } = await api.origin(lon, lat);
+  if (id !== state.tourReq || state.mode !== 'B') return;
+  if (err) { clearOriginB(); $('#tour').innerHTML = warnHTML(err); render(); return; }
+  state.origin = data; state.ll = [lon, lat]; state.fitNext = fit;
+  if (originMarker) originMarker.remove();
+  originMarker = new maplibregl.Marker({ color: '#1e3cc8' }).setLngLat([state.origin.rep_lon, state.origin.rep_lat]).addTo(map);
+  showTour();
+}
+
+async function showTour() {
+  if (!state.origin) return;
+  const key = layerKey(), id = ++state.tourReq;
+  $('#tour').innerHTML = '<span class="muted">loading trip…</span>';
+  const { data, err } = await api.tour(state.origin.h3, key);
+  if (id !== state.tourReq || !state.origin || state.mode !== 'B') return;   // superseded, or the start / mode changed meanwhile
+  if (err) { $('#tour').innerHTML = warnHTML(err); state.tour = null; closeTripPopup(); render(); return; }
+  state.tour = data;
+  const t = state.tour, isCount = key.endsWith('_n');
+  const located = s => s.lon != null;
+  const shown = t.stops.filter(located), hidden = t.stops.length - shown.length;
+  const snapNote = state.origin.snapped_m > 0 ? ` <span class="muted">(moved ${(state.origin.snapped_m / 1000).toFixed(1)} km to the nearest road)</span>` : '';
+  const where = s => located(s) ? `${esc(s.address || '')}${s.city ? (s.address ? ', ' : '') + esc(s.city) : ''}`
+    : s.approx ? `somewhere in circle ${s.order} · <a href="${gmapsSearch(s)}" target="_blank" rel="noopener">find it on Google Maps</a>` : '<i>location not shown</i>';
+  const rows = t.stops.map(s => `<tr><td>${s.order}</td><td>${esc(s.brand)}<br><span class="muted">${where(s)}</span></td><td class="num">${Math.round(s.arrive_min)}′</td>` +
+    (isCount ? '' : `<td class="num">${s.value.toFixed(1)}</td>`) + '</tr>').join('');
+  const home = [t.origin.rep_lon, t.origin.rep_lat];
+  const gm = gmapsHTML([home, ...shown.map(s => [s.lon, s.lat]), home], ['start', ...shown.map(s => 'stop ' + s.order), 'back to start'], hidden);
+  const head = isCount ? `${t.n_stops} stores` : `${worthText(t.score)}`;
+  $('#tour').innerHTML = `<h2>Best ${t.budget_min / 60}-hour round trip from here${snapNote}</h2>` +
+    (t.stops.length ? `<div class="worth"><b>${head}</b>${isCount ? '' : ` <span class="muted">· ${t.n_stops} stops</span>`}</div>` +
+      `<div class="muted">Driving ${fmtMin(t.drive_min)} (light traffic) + ${t.dwell_min} min in stores = ${fmtMin(t.time_used_min)} of ${t.budget_min} min</div>` +
+      `<table><tr><th>#</th><th>store</th><th class="num" title="minutes after you leave">min</th>${isCount ? '' : '<th class="num" title="typical stores this one is worth">worth</th>'}</tr>${rows}</table>` +
+      gm + `<div class="muted">${t.straight ? 'Numbered dots are the stops in order; Google Maps draws the roads. ' : ''}"min" = minutes after you leave. <a class="linkish" data-how="what">What is "worth"?</a></div>`
+    : '<div class="muted">No store fits a round trip from here within this time.</div>');
+  wireHow($('#tour'));
+  if (t.straight && t.stops.length) showTripPopup(t, home, shown, hidden); else closeTripPopup();
+  render();
+  if (state.fitNext) fitTo([home, ...t.legs.filter(l => l.path).flatMap(l => l.path), ...t.stops.filter(s => s.approx).map(s => s.approx)]);
+  state.fitNext = true;
+  if (!isPhone()) $('#tour').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ---------------- switching modes: B = round trips, C = cities, others come from MODES ----------------
+function setMode(m) {
+  if (m === state.mode) return;
+  state.mode = m;
+  if (m !== 'B') closeTripPopup();
+  document.querySelectorAll('#tabs [data-m], #cTabs [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.body.classList.toggle('modeC', m === 'C');
+  if (m === 'C') { showCities(); return; }
+  $('#cityNote').classList.toggle('hide', !state.cityHL);
+  document.querySelectorAll('#panel [data-mode]').forEach(e => e.classList.toggle('hide', e.dataset.mode !== m));
+  $('#legend').innerHTML = '';
+  if (m === 'B') { loadLayer(); if (state.ll) setOrigin(state.ll[0], state.ll[1], false); else { clearOriginB(); hintB(); } }
+  else MODES[m].enter();
+  saveHash();
+}
+
+// ---------------- "cities" mode: each city's median of the map's round-trip scores, vs its population ----------------
+const C = { data: null, metro: null, sel: null, sort: { k: 'median', dir: -1 }, q: '', zoom: null, outlines: null, byId: null, req: null, hideFlagged: false };
+const DEFAULT_METRO = '';   // the whole study area (2026-10-06; was the LA metro)
+const KIND_LABEL = { city: 'city', town: 'town', CDP: 'unincorporated community (CDP)' };
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function cSet() { return $('#drug').checked ? 'all' : 'nodrug'; }
+function lay(r) { return r.layers[layerKey()]; }
+function med(r) { const q = lay(r).q; return q ? q[2] : null; }
+function near(r) { return r.near[cSet()]; }
+function flagged(r) { return lay(r).flags.length > 0; }
+function budgetH() { return +document.querySelector('input[name=budget]:checked').value; }
+function fmtS(v) { return v == null ? '–' : isWeighted() ? v.toFixed(1) : String(v); }
+function scoreName() { return isWeighted() ? "typical stores' worth" : 'stores per trip'; }
+const STATE_SUFFIX = /, [A-Z]{2}(-[A-Z]{2})*$/;   // "Fresno, CA" -> "Fresno"
+function shortMetro(m) { return m ? m.replace(STATE_SUFFIX, '').split('-')[0] : ''; }
+function fmtInt(v) { return v == null ? '–' : Math.round(v).toLocaleString(); }
+function fmtPop(v) { return v >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : v >= 1e4 ? Math.round(v / 1e3) + 'k' : v.toLocaleString(); }
+function flagText(f) {
+  const p = C.data.params;
+  return { few_stores: ['few stores', `The best trips from this city use fewer than ${p.flag_min_distinct_stores} different stores: one store closing could move the score a lot.`],
+           uneven: ['uneven', `Scores differ a lot inside the city (the middle half of the residents spans more than ${Math.round(p.flag_iqr_rel * 100)} % of the median): the median does not describe every neighbourhood.`],
+           seasonal: ['seasonal?', `More than ${p.flag_homes_per_100} homes per 100 residents, so many are likely second homes. Winter visitors and tourists are not counted as residents: competition may be underestimated and the score too high. Districts with many one-person households can also get this flag.`] }[f];
+}
+function flagChips(r) {   // one small marker; the reasons are in its tooltip and in the city's details
+  const fl = lay(r).flags; if (!fl.length) return '';
+  return `<span class="flag" title="${esc(fl.map(f => flagText(f)[0] + ': ' + flagText(f)[1]).join('\n'))}">⚑</span>`;
+}
+
+async function loadCities() {
+  if (C.data) return true;
+  if (!C.req) C.req = api.cities();
+  const { data, err } = await C.req;
+  if (err) { C.req = null; $('#cStatus').innerHTML = warnHTML(err); return false; }
+  C.data = data; C.byId = Object.fromEntries(data.cities.map(r => [r.id, r]));
+  $('#cMetro').innerHTML = `<option value="">All ${esc(AREA())} (${data.cities.length} cities)</option>` +
+    data.metros.map(m => `<option value="${esc(m.name)}">${esc(m.name.replace(STATE_SUFFIX, ''))} (${m.cities})</option>`).join('');
+  const hp = data.cities.map(r => r.homes_per_100).sort((a, b) => a - b), mid = hp.length >> 1;
+  C.homesMedian = hp.length % 2 ? hp[mid] : (hp[mid - 1] + hp[mid]) / 2;
+  return true;
+}
+async function loadOutlines() {
+  if (C.outlines) return;
+  const { data } = await api.outlines();
+  if (data) { C.outlines = data; render(); }
+}
+function syncControlsC() {
+  $('#cDrug').checked = $('#drug').checked;
+  $('#cHide').checked = C.hideFlagged;
+  const b = document.querySelector(`input[name=cBudget][value="${budgetH()}"]`); if (b) b.checked = true;
+  const m = document.querySelector(`input[name=cMode][value="${isWeighted() ? 'w' : 'n'}"]`); if (m) m.checked = true;
+}
+async function showCities() {
+  syncControlsC();
+  if (!await loadCities()) return;
+  if (C.metro === null) C.metro = DEFAULT_METRO;
+  if (C.metro && !C.data.metros.some(m => m.name === C.metro)) C.metro = '';
+  if (C.sel && !C.byId[C.sel]) C.sel = null;
+  $('#cMetro').value = C.metro;
+  renderCities();
+}
+function citiesInView() { return C.data.cities.filter(r => (!C.metro || r.metro === C.metro) && (!C.hideFlagged || !flagged(r) || r.id === C.sel) && med(r) != null); }
+function matches(r) { return !C.q || r.name.toLowerCase().includes(C.q); }
+function layerRange() {   // p10 .. p90 over all cities of this layer: one scale for every spread bar
+  let lo = Infinity, hi = -Infinity;
+  for (const r of C.data.cities) { const q = lay(r).q; if (q) { lo = Math.min(lo, q[0]); hi = Math.max(hi, q[4]); } }
+  return [lo, hi];
+}
+function renderCities() {
+  if (!C.data) return;
+  const rows = citiesInView(), nf = rows.filter(flagged).length;
+  $('#cStatus').textContent = `${rows.length} cities${nf ? ` (${nf} ⚑)` : ''} · ${fmtPop(rows.reduce((a, r) => a + r.pop, 0))} residents · data as of ${(state.meta && state.meta.data_as_of) || C.data.built}`;
+  $('#cLegend').innerHTML = `<svg width="12" height="12"><circle cx="6" cy="6" r="4.5" fill="#1e3cc8" fill-opacity=".8"/></svg> score looks reliable &nbsp; ` +
+    `<svg width="12" height="12"><circle cx="6" cy="6" r="4.5" fill="#fff" stroke="#1e3cc8" stroke-width="1.5"/></svg> read with care (⚑) &nbsp; ` +
+    `<svg width="26" height="12"><line x1="2" x2="24" y1="6" y2="6" stroke="#999" stroke-width="2"/></svg> middle half of the residents &nbsp; dot size = residents`;
+  renderScatter(rows); renderDetail(); renderTable(rows);
+  saveHash();
+}
+
+// scatter: x = the city's median round-trip score (linear), y = people per shelf near home (log, less competition at the bottom), size = residents
+const SC = { H: 470, m: { l: 62, r: 24, t: 14, b: 42 } };
+function logScale(d0, d1, r0, r1) { const a = Math.log(d0), b = Math.log(d1); const f = v => r0 + (Math.log(v) - a) / (b - a) * (r1 - r0); f.inv = px => Math.exp(a + (px - r0) / (r1 - r0) * (b - a)); return f; }
+function linScale(d0, d1, r0, r1) { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = px => d0 + (px - r0) / (r1 - r0) * (d1 - d0); return f; }
+function shelfTicks(d0, d1) { const out = []; for (let e = 2; e <= 6; e++) for (const k of [1, 1.5, 2, 3, 5, 7]) { const v = k * 10 ** e; if (v >= d0 * 0.999 && v <= d1 * 1.001) out.push(v); } return out; }
+function linTicks(d0, d1) {
+  const raw = (d1 - d0) / 7, mag = 10 ** Math.floor(Math.log10(raw)), step = [1, 2, 5, 10].map(k => k * mag).find(s => s >= raw);
+  const out = []; for (let v = Math.ceil(d0 / step) * step; v <= d1 + 1e-9; v += step) out.push(+v.toFixed(6)); return out;
+}
+function dem(r) { return near(r).demand; }
+function rad(r) { return 2.5 + 1.1 * Math.sqrt(r.pop / 1e4); }   // dot area ~ residents
+function domain(rows) {
+  if (C.zoom) return C.zoom;
+  if (!rows.length) return [0, 10, 1e4, 1e6];
+  const xs = rows.map(med), ys = rows.map(dem).filter(v => v);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), pad = Math.max((x1 - x0) * 0.05, 0.5);
+  return [Math.max(0, x0 - pad), x1 + pad, Math.min(...ys) / 1.12, Math.max(...ys) * 1.12];
+}
+function renderScatter(rows) {
+  const box = $('#cScatter'), W = Math.max(300, box.clientWidth || 800), { H, m } = SC;
+  const [x0, x1, y0, y1] = domain(rows);
+  const X = linScale(x0, x1, m.l, W - m.r), Y = logScale(y0, y1, H - m.b, m.t);
+  C.scale = { X, Y, W, H };
+  const inBox = r => { const x = med(r), y = dem(r); return y && x >= x0 && x <= x1 && y >= y0 && y <= y1; };
+  const vis = rows.filter(inBox).sort((a, b) => b.pop - a.pop);
+  let g = '';
+  for (const t of linTicks(x0, x1)) g += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}" stroke="#eee"/><text x="${X(t)}" y="${H - m.b + 14}" font-size="11" text-anchor="middle" fill="#666">${t}</text>`;
+  for (const t of shelfTicks(y0, y1)) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="#eee"/><text x="${m.l - 6}" y="${Y(t) + 4}" font-size="11" text-anchor="end" fill="#666">${t / 1000}k</text>`;
+  const narrow = W < 560;   // phones: shorter axis titles
+  g += `<text x="${(m.l + W - m.r) / 2}" y="${H - 6}" font-size="12" text-anchor="middle" fill="#333">${narrow ? `${budgetH()}-hour trip from home` : `best ${budgetH()}-hour round trip from a typical home (${isWeighted() ? "typical stores' worth" : 'stores'})`} → better</text>`;
+  g += `<text transform="translate(14 ${(m.t + H - m.b) / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="#333">` +
+       `<tspan fill="#0a7a3a" font-weight="600">← less${narrow ? '' : ' competition'}</tspan>   people per shelf near home${narrow ? '' : ' (log)'}   <tspan fill="#b00020" font-weight="600">more${narrow ? '' : ' competition'} →</tspan></text>`;
+  g += `<text x="${W - m.r - 6}" y="${H - m.b - 8}" font-size="12" text-anchor="end" fill="#0a7a3a" font-weight="600">easier trips, less competition</text>`;
+  for (const r of vis) {   // middle half of the residents
+    const q = lay(r).q, cy = Y(dem(r));
+    if (q[3] > q[1]) g += `<line x1="${X(Math.max(q[1], x0))}" x2="${X(Math.min(q[3], x1))}" y1="${cy}" y2="${cy}" stroke="#999" stroke-width="1.5" stroke-opacity="${matches(r) ? 0.9 : 0.2}"/>`;
+  }
+  for (const r of vis) {
+    const on = matches(r), sel = r.id === C.sel, fl = flagged(r);
+    g += `<circle class="pt" data-id="${r.id}" cx="${X(med(r))}" cy="${Y(dem(r))}" r="${rad(r) + (sel ? 2 : 0)}" fill="${fl ? '#fff' : '#1e3cc8'}" fill-opacity="${on ? (fl ? 1 : 0.8) : 0.12}"` +
+         ` stroke="${sel ? '#000' : fl ? '#1e3cc8' : '#fff'}" stroke-opacity="${on ? 1 : 0.25}" stroke-width="${sel ? 2.5 : fl ? 1.5 : 0.8}"/>`;
+  }
+  const nLab = C.zoom ? 22 : C.metro ? 16 : 8;   // the whole study area: only the biggest names, or the labels pile up
+  const labeled = vis.filter((r, i) => (C.q ? matches(r) : i < nLab) || r.id === C.sel).slice(0, 40);
+  for (const r of labeled) {   // labels to the left of dots near the right edge
+    const x = X(med(r)), o = rad(r) + 3, left = x > W - m.r - o - 7 * r.name.length;
+    g += `<text class="lab" x="${left ? x - o : x + o}" y="${Y(dem(r)) + 4}" text-anchor="${left ? 'end' : 'start'}">${esc(r.name)}</text>`;
+  }
+  box.querySelector('svg')?.remove();
+  box.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${W} ${H}" height="${H}">${g}<rect id="cBrush" fill="rgba(30,60,200,.12)" stroke="#1e3cc8" display="none"/></svg>`);
+  $('#cReset').classList.toggle('hide', !C.zoom);
+  wireScatter();
+}
+function tipHTML(r) {
+  const q = lay(r).q;
+  return `<b>${esc(r.name)}</b> · ${fmtPop(r.pop)} residents<br>median ${scoreName()} <b>${fmtS(q[2])}</b> (middle half ${fmtS(q[1])}–${fmtS(q[3])})<br>${fmtInt(dem(r))} people per shelf near home` +
+    (flagged(r) ? `<br>flagged: ${lay(r).flags.map(f => flagText(f)[0]).join(', ')}` : '');
+}
+function wireScatter() {
+  const svg = $('#cScatter svg'), tip = $('#cTip'), brush = $('#cBrush');
+  const pt = ev => { const b = svg.getBoundingClientRect(); return [(ev.clientX - b.left) * C.scale.W / b.width, (ev.clientY - b.top) * C.scale.H / b.height]; };
+  let drag = null;
+  svg.addEventListener('mousemove', ev => {
+    if (drag) {
+      const [x, y] = pt(ev); drag.moved = drag.moved || Math.hypot(x - drag.x, y - drag.y) > 5;
+      brush.setAttribute('x', Math.min(x, drag.x)); brush.setAttribute('y', Math.min(y, drag.y));
+      brush.setAttribute('width', Math.abs(x - drag.x)); brush.setAttribute('height', Math.abs(y - drag.y));
+      brush.setAttribute('display', drag.moved ? '' : 'none'); tip.style.display = 'none'; return;
+    }
+    const id = ev.target.dataset && ev.target.dataset.id;
+    if (!id) { tip.style.display = 'none'; return; }
+    const b = $('#cScatter').getBoundingClientRect();
+    tip.innerHTML = tipHTML(C.byId[id]); tip.style.display = 'block';
+    tip.style.left = Math.min(ev.clientX - b.left + 14, b.width - tip.offsetWidth - 4) + 'px'; tip.style.top = (ev.clientY - b.top + 14) + 'px';
+  });
+  svg.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  svg.addEventListener('mousedown', ev => { const [x, y] = pt(ev); drag = { x, y, moved: false, id: ev.target.dataset && ev.target.dataset.id }; ev.preventDefault(); });
+  window.onmouseup = ev => {
+    if (!drag) return;
+    const d = drag; drag = null; brush.setAttribute('display', 'none');
+    if (!d.moved) { if (d.id) selectCity(d.id, true); return; }
+    const [x, y] = pt(ev), { X, Y } = C.scale;
+    const xa = X.inv(Math.min(x, d.x)), xb = X.inv(Math.max(x, d.x)), ya = Y.inv(Math.max(y, d.y)), yb = Y.inv(Math.min(y, d.y));
+    if (xb - xa > 0.05 && yb / ya > 1.05) { C.zoom = [xa, xb, ya, yb]; renderScatter(citiesInView()); }
+  };
+}
+function selectCity(id, scrollRow) {
+  C.sel = id; renderScatter(citiesInView()); renderDetail(); markRow();
+  if (scrollRow) { const tr = document.querySelector(`#cTable tr[data-id="${id}"]`); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
+  saveHash();
+}
+function boxBar(q, w = 120) {   // p10–p90 whiskers, p25–p75 box, median tick, on the scale of every city in this layer
+  if (!q) return '';
+  const [lo, hi] = layerRange(), X = linScale(lo, hi, 4, w - 4);
+  return `<svg width="${w}" height="14" style="vertical-align:-3px"><line x1="4" x2="${w - 4}" y1="7" y2="7" stroke="#eee" stroke-width="2"/>` +
+    `<line x1="${X(q[0])}" x2="${X(q[4])}" y1="7" y2="7" stroke="#999" stroke-width="1.2"/>` +
+    `<rect x="${X(q[1])}" y="3" width="${Math.max(X(q[3]) - X(q[1]), 1.5)}" height="8" fill="#b8c3ea" stroke="#1e3cc8" stroke-width=".8"/>` +
+    `<line x1="${X(q[2])}" x2="${X(q[2])}" y1="1" y2="13" stroke="#1e3cc8" stroke-width="2.5"/></svg>`;
+}
+function pocketList(list) {
+  return list.map(p => `<tr><td><a href="#" class="pocket" data-lon="${p.lon}" data-lat="${p.lat}">${esc(p.name)}</a></td><td class="num"><b>${fmtS(p.score)}</b></td>` +
+    `<td class="num muted">${fmtPop(p.pop)}</td></tr>`).join('');
+}
+function renderDetail() {
+  const el = $('#cDetail'), r = C.sel && C.byId[C.sel];
+  if (!r) {
+    const rows = citiesInView().sort((a, b) => med(b) - med(a) || b.pop - a.pop);
+    const li = l => l.map(r => `<tr><td><a href="#" class="pick" data-id="${r.id}">${esc(r.name)}</a> ${flagChips(r)}</td><td class="num"><b>${fmtS(med(r))}</b></td><td class="num muted">${fmtPop(r.pop)}</td></tr>`).join('');
+    el.innerHTML = `<h2 style="margin-top:0">${esc(C.metro ? C.metro.replace(STATE_SUFFIX, '') : 'All ' + AREA())}</h2>` +
+      `<div class="muted">Best ${budgetH()}-hour round trip from a typical home, in ${scoreName()}. Click a dot or a row for a city's details.</div>` +
+      `<h2>Easiest</h2><table>${li(rows.slice(0, 5))}</table><h2>Hardest</h2><table>${li(rows.slice(-5).reverse())}</table>`;
+  } else {
+    const L = lay(r), q = L.q, n = near(r), pk = L.pockets, w = isWeighted(), P = C.data.params;
+    const what = w ? `stores worth about <b>${fmtS(q[2])}</b> typical stores (a ${esc(TOPIC.reference_brand)} at the usual level of competition = 1)` : `<b>${q[2]}</b> stores`;
+    el.innerHTML = `<h2 style="margin-top:0">${esc(r.name)}</h2><div class="muted">${KIND_LABEL[r.kind] || r.kind} · ${esc(shortMetro(r.metro))} area · ${r.pop.toLocaleString()} residents (2025 est.)</div>` +
+      `<div style="margin-top:8px"><span class="big" style="color:#1e3cc8">${w ? '≈ ' : ''}${fmtS(q[2])}</span> <span class="muted">${scoreName()}</span></div>` +
+      `<div class="muted">From a typical resident's home, the best ${budgetH()}-hour round trip collects ${what}.</div>` +
+      `<div style="margin:8px 0 2px">${boxBar(q, 300)}</div>` +
+      `<div class="muted">Bar: where the city's residents stand, from the worst-placed tenth (left whisker) to the best-placed tenth (right); the box holds the middle half.</div>` +
+      (L.flags.length ? `<h2>⚑ Read with care</h2>` + L.flags.map(f => `<div class="flagnote"><b>${flagText(f)[0]}</b>: ${esc(flagText(f)[1])}</div>`).join('') : '') +
+      `<h2>Why</h2><table>` +
+      `<tr><td>different stores in the best trips</td><td class="num"><b>${L.stores_used}</b></td></tr>` +
+      `<tr><td>stores within ${P.catchment_min} min of home</td><td class="num"><b>${n.stores}</b></td><td class="muted">${n.stores_p25}–${n.stores_p75} for half the residents</td></tr>` +
+      `<tr><td>people per shelf near home</td><td class="num"><b>${fmtInt(n.demand)}</b></td><td class="muted">${esc(AREA())} store median ${fmtInt(P.ref_demand[cSet()])}</td></tr>` +
+      `<tr><td>stores inside the city limits</td><td class="num">${r.stores_inside}</td></tr>` +
+      `<tr><td>homes per 100 residents</td><td class="num">${r.homes_per_100}</td><td class="muted">${esc(AREA())} city median ${Math.round(C.homesMedian)}</td></tr>` +
+      (n.no_store_share > 0 ? `<tr><td>no store within ${P.catchment_min} min</td><td class="num${n.no_store_share > 0.2 ? ' warn' : ''}">${Math.round(n.no_store_share * 100)}%</td><td class="muted">of residents</td></tr>` : '') +
+      `</table>` +
+      (pk && pk.best.length ? `<h2>Easiest areas</h2><table>${pocketList(pk.best)}</table>` + (pk.hardest.length ? `<h2>Hardest areas</h2><table>${pocketList(pk.hardest)}</table>` : '') +
+        `<div class="muted">${pk.how === 'compass' ? 'OpenStreetMap has too few neighbourhood names here, so the areas are compass directions from the centre. ' : 'Named after the nearest OpenStreetMap neighbourhood; approximate, not official boundaries. '}Click one to see the best trip from there.</div>` : '') +
+      `<div style="margin-top:10px"><button class="btn" id="cOnMap">Show on the map</button> <a href="#" id="cClear">back to the area</a></div>`;
+    $('#cOnMap').addEventListener('click', () => cityOnMap(r));
+    $('#cClear').addEventListener('click', ev => { ev.preventDefault(); C.sel = null; renderCities(); });
+    el.querySelectorAll('a.pocket').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); cityOnMap(r, [+a.dataset.lon, +a.dataset.lat], a.textContent); }));
+  }
+  el.querySelectorAll('a.pick').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); selectCity(a.dataset.id, true); }));
+}
+const COLS = [
+  { k: 'rank', t: '#', num: true, nosort: true },
+  { k: 'name', t: 'city', get: r => r.name },
+  { k: 'metro', t: 'area', get: r => r.metro || '' },
+  { k: 'pop', t: 'residents', num: true, get: r => r.pop },
+  { k: 'median', t: 'score', num: true, get: r => med(r) },
+  { k: 'demand', t: 'people per shelf', num: true, get: r => near(r).demand ?? Infinity },
+];
+function renderTable(rows) {
+  const col = COLS.find(c => c.k === C.sort.k);
+  const list = rows.filter(matches).sort((a, b) => { const va = col.get(a), vb = col.get(b); return (va < vb ? -1 : va > vb ? 1 : 0) * C.sort.dir || b.pop - a.pop; });
+  const head = COLS.map(c => `<th data-k="${c.k}" class="${c.num ? 'num' : ''}${c.k === C.sort.k ? ' sorted' : ''}">${c.t}${c.k === C.sort.k ? (C.sort.dir < 0 ? ' ▼' : ' ▲') : ''}</th>`).join('');
+  const body = list.map((r, i) => { const n = near(r), L = lay(r);
+    return `<tr class="city" data-id="${r.id}"><td class="num muted">${i + 1}</td><td>${esc(r.name)}${r.kind === 'CDP' ? ' <span class="muted">CDP</span>' : ''} ${flagChips(r)}</td>` +
+      `<td class="muted">${esc(shortMetro(r.metro))}</td><td class="num">${fmtPop(r.pop)}</td><td class="num"><b>${fmtS(L.q[2])}</b></td>` +
+      `<td class="num">${fmtInt(n.demand)}</td></tr>`; }).join('');
+  $('#cTable').innerHTML = `<table><tr>${head}</tr>${body}</table>` + (list.length ? '' : '<div class="muted">No city matches.</div>');
+  $('#cTable').querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+    const c = COLS.find(c => c.k === th.dataset.k); if (c.nosort) return;
+    C.sort = C.sort.k === c.k ? { k: c.k, dir: -C.sort.dir } : { k: c.k, dir: c.num ? -1 : 1 }; renderTable(citiesInView());
+  }));
+  $('#cTable').querySelectorAll('tr.city').forEach(tr => tr.addEventListener('click', () => selectCity(tr.dataset.id, false)));
+  markRow();
+}
+function markRow() { document.querySelectorAll('#cTable tr.city').forEach(tr => tr.classList.toggle('cur', tr.dataset.id === C.sel)); }
+function clearCityHL() { state.cityHL = null; $('#cityNote').classList.add('hide'); }
+function cityOnMap(r, pocket, pocketName) {
+  state.cityHL = r.id; loadOutlines();
+  $('#cityNote').innerHTML = `Outlined: <b>${esc(r.name)}</b> (${isWeighted() ? '≈ ' : ''}${fmtS(med(r))} ${scoreName()} from a typical home)${pocket ? ` · trip from ${esc(pocketName)}` : ''} · <a href="#" id="backC">back to the cities</a>`;
+  if (pocket) { state.ll = null; clearOriginB(); }
+  setMode('B');
+  $('#backC').addEventListener('click', ev => { ev.preventDefault(); setMode('C'); });
+  const b = r.bbox;
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: mapPad(), maxZoom: 13, duration: 0 });
+  if (pocket) setOrigin(pocket[0], pocket[1], false);
+  render();
+}
+function resetC() { C.zoom = null; renderCities(); }
+$('#cMetro').addEventListener('change', () => { C.metro = $('#cMetro').value; C.sel = null; resetC(); });
+$('#cDrug').addEventListener('change', () => { $('#drug').checked = $('#cDrug').checked; resetC(); });
+document.querySelectorAll('input[name=cBudget]').forEach(el => el.addEventListener('change', () => { document.querySelector(`input[name=budget][value="${el.value}"]`).checked = true; resetC(); }));
+document.querySelectorAll('input[name=cMode]').forEach(el => el.addEventListener('change', () => { document.querySelector(`input[name=mode][value="${el.value}"]`).checked = true; resetC(); }));
+$('#cHide').addEventListener('change', () => { C.hideFlagged = $('#cHide').checked; resetC(); });
+$('#cSearch').addEventListener('input', () => {
+  C.q = $('#cSearch').value.trim().toLowerCase();
+  if (C.q && C.metro && !citiesInView().some(matches) && C.data.cities.some(matches)) { C.metro = ''; $('#cMetro').value = ''; C.zoom = null; }   // the city is in another area
+  renderCities();
+});
+$('#cReset').addEventListener('click', () => { C.zoom = null; renderScatter(citiesInView()); });
+window.addEventListener('resize', () => { if (state.mode === 'C' && C.data) renderScatter(citiesInView()); });
+
+map.on('click', e => {
+  if (state.mode === 'B') { setOrigin(e.lngLat.lng, e.lngLat.lat); return; }
+  const ext = MODES[state.mode]; if (ext && ext.click) ext.click(e);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  if (HOOKS.escape.some(f => f())) return;
+  if (state.mode === 'C') return;
+  const clearCity = () => { if (!state.cityHL) return false; clearCityHL(); render(); return true; };
+  if (state.mode === 'B') { if (state.origin) { clearOriginB(); hintB(); render(); } else clearCity(); }
+  else if (!clearCity()) { const ext = MODES[state.mode]; if (ext && ext.escape) ext.escape(); }
+});
+document.querySelectorAll('input[name=budget]').forEach(el => el.addEventListener('change', loadLayer));
+document.querySelectorAll('input[name=mode], #drug').forEach(el => el.addEventListener('change', () => {
+  if (state.mode === 'B') loadLayer(); else { const ext = MODES[state.mode]; if (ext && ext.reload) ext.reload(); } }));
+$('#showStores').addEventListener('change', async () => {
+  if (!state.stores) { const { data, err } = await api.stores(); if (err) { $('#legendStores').innerHTML = warnHTML(err); return; } state.stores = data; }
+  render(); });
+$('#showPop').addEventListener('change', async () => {
+  if (!state.pop) { const { data, err } = await api.pop(); if (err) { $('#legend').innerHTML = warnHTML(err); return; } state.pop = data; }
+  render(); });
+document.querySelectorAll('#tabs [data-m], #cTabs [data-m]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.m)));
+$('#autoZoom').checked = lsGet('hh.autoZoom') !== '0';
+$('#autoZoom').addEventListener('change', () => lsSet('hh.autoZoom', $('#autoZoom').checked ? '1' : '0'));
+document.querySelectorAll('details.help, details.opts').forEach(d => {   // remember which boxes the viewer opened or folded
+  const v = lsGet('hh.help.' + d.id); if (v) d.open = v === 'open';
+  d.addEventListener('toggle', () => lsSet('hh.help.' + d.id, d.open ? 'open' : 'closed'));
+});
+// ---------------- welcome card (first visit) and the "How it works" sheet ----------------
+function openModal(id) { $(id).classList.add('on'); }
+function closeModals() { document.querySelectorAll('.modal.on').forEach(m => m.classList.remove('on')); lsSet('hh.welcomed', '1'); }
+function openHow(section) {
+  $('#welcome').classList.remove('on'); lsSet('hh.welcomed', '1');
+  openModal('#how');
+  const el = $('#how-' + (section || 'what')), card = $('#how .card');
+  card.scrollTop = section && section !== 'what' ? el.offsetTop - 12 : 0;
+}
+function wireHow(root) { root.querySelectorAll('[data-how]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); openHow(a.dataset.how); })); }
+wireHow(document);
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', ev => { if (ev.target === m) closeModals(); }));
+$('#how .x').addEventListener('click', closeModals);
+$('#wGo').addEventListener('click', closeModals);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.modal.on')) { closeModals(); e.stopImmediatePropagation(); } }, true);
+$('#grab').addEventListener('click', () => $('#panel').classList.toggle('full'));
+if (lsGet('hh.welcomed') !== '1' && HASH.intro !== '0') openModal('#welcome');   // #intro=0: no card (link-preview screenshots)
+function geoBounds(g) {   // [w, s, e, n] of a GeoJSON geometry
+  const b = [180, 90, -180, -90];
+  const walk = c => { if (typeof c[0] === 'number') { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); } else c.forEach(walk); };
+  walk(g.coordinates); return b;
+}
+
+// started by the page after every script has loaded, so the admin build has plugged in its data source and modes
+async function start() {
+  setBasemap(state.basemap);
+  const { data: meta, err } = await api.meta();
+  if (err) { $('#status').innerHTML = `<span class="warn">${err}</span>`; return; }
+  state.meta = meta;
+  const v = (HASH.v || '').split(',').map(Number);
+  if (v.length === 3 && v.every(Number.isFinite)) map.jumpTo({ center: [v[2], v[1]], zoom: v[0] });
+  else { const b = geoBounds(state.meta.study_area.geometry); map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: mapPad(), duration: 0 }); }   // the whole study area
+  // restore the controls from the link
+  if (HASH.w === '0') document.querySelector('input[name=mode][value=n]').checked = true;
+  if (HASH.drug === '0') $('#drug').checked = false;
+  const rb = HASH.b && document.querySelector(`input[name=budget][value="${HASH.b}"]`); if (rb) rb.checked = true;
+  for (const f of HOOKS.init) f(state.meta);
+  const ll = (HASH.ll || '').split(',').map(Number), hasLL = ll.length === 2 && ll.every(Number.isFinite);
+  if (!state.meta.cities) { $('#tabC').disabled = true; $('#tabC').title = 'the city dashboard is not built for this region'; }
+  state.ready = true;
+  if (HASH.m === 'C' && state.meta.cities) {
+    C.metro = HASH.g === 'all' ? '' : (HASH.g || null); C.sel = HASH.c || null; C.hideFlagged = HASH.hf === '1';
+    setMode('C');
+  } else if (MODES[HASH.m] && MODES[HASH.m].restore) {
+    MODES[HASH.m].restore(hasLL ? ll : null);
+  } else {
+    hintB();
+    await loadLayer();
+    if (hasLL) setOrigin(ll[0], ll[1], !HASH.v);
+  }
+}
+
+</script>
+<script>
+start();
+</script>
+</body>
+</html>
