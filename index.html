@@ -118,7 +118,7 @@ body.modeC #busyChip { left: 50%; }
 details.opts { margin-top: 8px; border-top: 1px solid #ddd; padding-top: 4px; }
 details.opts > summary { cursor: pointer; color: #1e3cc8; padding: 3px 0; }
 .foot { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
-.foot a, .linkish { color: #1e3cc8; cursor: pointer; text-decoration: underline; }
+.foot a, .linkish, .fine a[data-how] { color: #1e3cc8; cursor: pointer; text-decoration: underline; }
 .worth { font-size: 16px; }
 .trip-pop .maplibregl-popup-content { padding: 10px 12px 8px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
 .trip-pop .gmaps { margin: 6px 0 0; }
@@ -246,14 +246,34 @@ details.opts > summary { cursor: pointer; color: #1e3cc8; padding: 3px 0; }
   by the <b>best round trip you could start there</b>: darker red means better hunting.</p>
 <p>Click anywhere to see that trip, or open <b>Cities</b> to see where I'd go.</p>
     <div class="row2"><button class="btn go" id="wGo">Explore the map</button> <a class="linkish" data-how="what">How it works</a></div>
-    <div class="fine">A weekend side project by Zhihui Chen. Not affiliated with any toy maker or retailer.</div>
+    <div class="fine">A weekend side project by Zhihui Chen (<a data-how="why">why I built this</a>). Not affiliated with any toy maker or retailer.</div>
   </div>
 </div>
 <div class="modal" id="how" role="dialog" aria-modal="true" aria-labelledby="hTitle">
   <div class="card">
     <button class="x" aria-label="Close">×</button>
     <h1 id="hTitle" style="font-size:18px;margin:0">How it works</h1>
-    <h2 id="how-what">What the map shows</h2>
+    <!-- "Why I built this": the author's story. The comparisons below were read from the city ranking of results 9a4faa7d15
+     (people per shelf: San Francisco 17,371, Eureka 5,260, Redding 6,251, Red Bluff 4,322); recheck them after a rerun. -->
+<h2 id="how-why">Why I built this</h2>
+<p>A confession: I got hooked on die-cast cars, as an adult. It turns out I am far from alone. Almost every grocery store, dollar store and drugstore in the US
+  has at least one peg of them, the big retailers give them a whole aisle, and the hunters range from kids to retirees.</p>
+<p>The hook is the hunt, and it is a well-designed one. Mixed in with the regular cars, the makers hide rare <b>chase</b> versions: the same model with a special
+  paint finish and real rubber tires. Nobody outside the factory knows the odds, only that they are very, very rare. The cars cost about a dollar, the variety
+  never ends, and any peg might hold one. So you check the toy aisle every time you buy groceries, and some collectors plan whole trips around it.</p>
+<div style="display:flex;gap:8px;margin:8px 0 4px">
+  <figure style="flex:1;margin:0"><img src="img/why-aisle.jpg" alt="A store's toy aisle with rows of carded die-cast cars on pegs" loading="lazy" style="width:100%;border-radius:6px"><figcaption class="muted" style="font-size:12px">A typical aisle.</figcaption></figure>
+  <figure style="flex:1;margin:0"><img src="img/why-chase.jpg" alt="Two versions of the same car on their cards, held side by side" loading="lazy" style="width:100%;border-radius:6px"><figcaption class="muted" style="font-size:12px">Same car, two versions: the chase on top, the regular one at the bottom.</figcaption></figure>
+</div>
+<p>I recently moved to Northern California, and hunting has become part of every drive I take to explore it. One pattern kept coming back: my best finds came
+  from stores in the middle of nowhere. Up the coast on US-101 into Oregon I found some of my favourite cars; around the Bay Area and along I-5, almost nothing.
+  The obvious explanation is competition: fewer hunters per peg, better odds.</p>
+<p>So I tried to put a number on it. This map shares every store's pegs among the people who live within a short drive, then looks for the best round trip
+  from every spot in California. The Bay Area came out as expected: about three times as many residents share each store in San Francisco as in Eureka.
+  The surprise was I-5: per store, Redding and Red Bluff look about as good as the north coast. My guess is what the map cannot see. I-5 is the state's main
+  truck and road-trip route, so hunters passing through, resellers included, may empty the pegs before the locals get there, and the map only counts residents.</p>
+<p>It is a weekend side project and an exercise in "vibe coding": I built it with Claude Code. Treat a score as a reason to plan a road trip, not a promise.</p>
+<h2 id="how-what">What the map shows</h2>
 <p>California is divided into hexagons about 1 km across. Each one is coloured by the <b>best trip that starts and ends there</b> within
   1, 2 or 3 hours, counting both the driving and the time spent inside each store. Click a hexagon to see that trip: the stops in order and the clock.</p>
 <p>A trip's score reads as <b>"about how many typical stores it is worth"</b>. A typical store is a Dollar Tree shared by the usual number of
@@ -1084,7 +1104,7 @@ function openHow(section) {
   $('#welcome').classList.remove('on'); lsSet('hh.welcomed', '1');
   openModal('#how');
   const el = $('#how-' + (section || 'what')), card = $('#how .card');
-  card.scrollTop = section && section !== 'what' ? el.offsetTop - 12 : 0;
+  card.scrollTop = section && section !== $('#how h2').id.slice(4) ? el.offsetTop - 12 : 0;   // the first section opens at the top, with the sheet's title
 }
 function wireHow(root) { root.querySelectorAll('[data-how]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); openHow(a.dataset.how); })); }
 wireHow(document);
@@ -1093,7 +1113,8 @@ $('#how .x').addEventListener('click', closeModals);
 $('#wGo').addEventListener('click', closeModals);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.modal.on')) { closeModals(); e.stopImmediatePropagation(); } }, true);
 $('#grab').addEventListener('click', () => $('#panel').classList.toggle('full'));
-if (lsGet('hh.welcomed') !== '1' && HASH.intro !== '0') openModal('#welcome');   // #intro=0: no card (link-preview screenshots)
+if (HASH.how && $('#how-' + HASH.how)) openHow(HASH.how);   // #how=why: open the sheet at that section (links shared elsewhere)
+else if (lsGet('hh.welcomed') !== '1' && HASH.intro !== '0') openModal('#welcome');   // #intro=0: no card (link-preview screenshots)
 function geoBounds(g) {   // [w, s, e, n] of a GeoJSON geometry
   const b = [180, 90, -180, -90];
   const walk = c => { if (typeof c[0] === 'number') { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); } else c.forEach(walk); };
